@@ -87,6 +87,11 @@ namespace hurl
             return ss.str();
         }
 
+        std::string query(std::string const& url, httpparams const& params)
+        {
+            return url + "?" + serialize(params);
+        }
+
 
         void prepare_basic(handle&              curl,
                            httpresponse &       response,
@@ -97,7 +102,7 @@ namespace hurl
             curl.setopt(CURLOPT_NOPROGRESS, 1);
             curl.setopt(CURLOPT_WRITEFUNCTION, &writefunc);
             curl.setopt(CURLOPT_WRITEDATA, &response);
-            curl.setopt(CURLOPT_COOKIEFILE, "");
+            curl.setopt(CURLOPT_COOKIEFILE, ""); // turns on cookie engine
         }
 
         void prepare_post(handle&               curl,
@@ -145,12 +150,7 @@ namespace hurl
     httpresponse get(std::string const& url, httpparams const& params)
     {
         detail::handle curl;
-
-        std::string query(url);
-        if (!params.empty())
-            query.append("?" + detail::serialize(params));
-
-        return detail::get(curl, query);
+        return detail::get(curl, detail::query(url, params));
     }
 
     httpresponse post(std::string const& url, std::string const& data)
@@ -197,6 +197,19 @@ namespace hurl
     httpresponse client::get(std::string const& path)
     {
         return detail::get(impl_->handle_, impl_->base_ + path);
+    }
+
+    httpresponse client::get(std::string const& path, httpparams const& params)
+    {
+        return detail::get(impl_->handle_,
+                           detail::query(impl_->base_ + path, params));
+    }
+
+    httpresponse client::post(std::string const& path, std::string const& data)
+    {
+        return detail::post(impl_->handle_,
+                            impl_->base_ + path,
+                            data);
     }
 
     httpresponse client::post(std::string const& path, httpparams const& params)
