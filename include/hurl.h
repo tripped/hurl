@@ -1,7 +1,8 @@
 #pragma once
 
-#include <string>
 #include <map>
+#include <string>
+#include <memory>
 
 namespace hurl
 {
@@ -57,5 +58,34 @@ namespace hurl
     // Submit an HTTP POST request with raw data.
     //
     httpresponse post(std::string const& url, std::string const& data);
+
+
+    //------------------------------------------------------------------------
+    // client class
+    //
+    // A convenience class representing a client session, used to perform
+    // multiple requests to a service with a given base URL. Uses a single
+    // cURL handle, which has two important consequences:
+    //
+    //  1. Cookies are saved between requests.
+    //  2. Requests made on the same client are NOT THREAD-SAFE.
+    //
+    class client
+    {
+    public:
+        explicit client(std::string const& baseurl);
+        ~client();
+
+        httpresponse get(std::string const& path);
+        httpresponse post(std::string const& path, httpparams const& params);
+
+    private:
+        class impl;
+        std::auto_ptr<impl> impl_;
+
+        // Noncopyable
+        client(client const&);
+        client& operator=(client const&);
+    };
 }
 

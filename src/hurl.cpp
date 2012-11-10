@@ -97,6 +97,7 @@ namespace hurl
             curl.setopt(CURLOPT_NOPROGRESS, 1);
             curl.setopt(CURLOPT_WRITEFUNCTION, &writefunc);
             curl.setopt(CURLOPT_WRITEDATA, &response);
+            curl.setopt(CURLOPT_COOKIEFILE, "");
         }
 
         void prepare_post(handle&               curl,
@@ -132,6 +133,9 @@ namespace hurl
         }
     }
 
+    //
+    // Implementations for the GET/POST free functions
+    //
     httpresponse get(std::string const& url)
     {
         detail::handle curl;
@@ -159,6 +163,47 @@ namespace hurl
     {
         detail::handle curl;
         return detail::post(curl, url, detail::serialize(params));
+    }
+
+
+    //
+    // client class implementation
+    //
+    class client::impl
+    {
+    public:
+        impl(std::string const& baseurl)
+            : base_(baseurl)
+        {
+        }
+
+        detail::handle handle_;
+        std::string base_;
+    };
+
+    client::client(std::string const& baseurl)
+        : impl_(new impl(baseurl))
+    {
+    }
+
+    client::~client()
+    {
+        // This destructor is empty but vital! Without it, auto_ptr cannot
+        // generate a call to impl's destructor. For an interesting look
+        // at this and other PIMPL issues, see Herb Sutter's GOTW #100.
+        // (http://herbsutter.com/gotw/_100)
+    }
+
+    httpresponse client::get(std::string const& path)
+    {
+        return detail::get(impl_->handle_, impl_->base_ + path);
+    }
+
+    httpresponse client::post(std::string const& path, httpparams const& params)
+    {
+        return detail::post(impl_->handle_,
+                            impl_->base_ + path,
+                            detail::serialize(params));
     }
 }
 
