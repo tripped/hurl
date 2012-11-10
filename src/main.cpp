@@ -6,9 +6,12 @@ int main()
 {
     std::cout << "Testing hurl...\n";
 
-    hurl::httpresponse result = hurl::get("http://google.com");
+    using namespace hurl;
+
+    httpresponse result = download("http://google.com", "google.html");
+
     std::cout << "STATUS: " << result.status << "\n";
-    std::cout << "BODY: " << result.body << ">>>END\n";
+    std::cout << "BODY: " << result.body << "\n";
 
     return 0;
 }

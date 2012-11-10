@@ -1,5 +1,6 @@
 #include "hurl.h"
 
+#include <fstream>
 #include <sstream>
 #include <exception>
 #include <stdexcept>
@@ -62,9 +63,9 @@ namespace hurl
             CURL* handle_;
         };
 
-        size_t writefunc(void* ptr, size_t size, size_t nmemb, httpresponse* resp)
+        size_t streamfunc(void* ptr, size_t size, size_t nmemb, std::ostream* out)
         {
-            resp->body.append(static_cast<char*>(ptr), size * nmemb);
+            (*out).write(static_cast<char*>(ptr), size * nmemb);
             return size * nmemb;
         }
 
@@ -94,14 +95,14 @@ namespace hurl
 
 
         void prepare_basic(handle&              curl,
-                           httpresponse &       response,
+                           std::ostream &       out,
                            std::string const&   url)
         {
             curl.reset();
             curl.setopt(CURLOPT_URL, url.c_str());
             curl.setopt(CURLOPT_NOPROGRESS, 1);
-            curl.setopt(CURLOPT_WRITEFUNCTION, &writefunc);
-            curl.setopt(CURLOPT_WRITEDATA, &response);
+            curl.setopt(CURLOPT_WRITEFUNCTION, &streamfunc);
+            curl.setopt(CURLOPT_WRITEDATA, &out);
             curl.setopt(CURLOPT_COOKIEFILE, ""); // turns on cookie engine
         }
 
@@ -119,9 +120,12 @@ namespace hurl
                          std::string const&     url)
         {
             httpresponse result;
-            prepare_basic(curl, result, url);
+            std::ostringstream ss;
+            prepare_basic(curl, ss, url);
             curl.perform();
             curl.getinfo(CURLINFO_RESPONSE_CODE, &result.status);
+            // Copy the stream buffer into the response
+            result.body.assign(ss.str());
             return result;
         }
 
@@ -130,8 +134,24 @@ namespace hurl
                           std::string const&    data)
         {
             httpresponse result;
-            prepare_basic(curl, result, url);
+            std::ostringstream ss;
+            prepare_basic(curl, ss, url);
             prepare_post(curl, data.data(), data.size());
+            curl.perform();
+            curl.getinfo(CURLINFO_RESPONSE_CODE, &result.status);
+            result.body.assign(ss.str());
+            return result;
+        }
+
+        httpresponse download(handle&           curl,
+                        std::string const&      url,
+                        std::string const&      localpath)
+        {
+            httpresponse result;
+            std::ofstream out(localpath.c_str(), std::ios::out |
+                                                 std::ios::binary |
+                                                 std::ios::trunc);
+            prepare_basic(curl, out, url);
             curl.perform();
             curl.getinfo(CURLINFO_RESPONSE_CODE, &result.status);
             return result;
@@ -163,6 +183,12 @@ namespace hurl
     {
         detail::handle curl;
         return detail::post(curl, url, detail::serialize(params));
+    }
+
+    httpresponse download(std::string const& url, std::string const& localpath)
+    {
+        detail::handle curl;
+        return detail::download(curl, url, localpath);
     }
 
 

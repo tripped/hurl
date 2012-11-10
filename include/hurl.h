@@ -21,7 +21,7 @@ namespace hurl
 
     //
     // get (string)
-    // Submit an HTTP GET request to the given URL.
+    //  Submit an HTTP GET request to the given URL.
     //
     //  url     The URL to retrieve.
     //
@@ -29,7 +29,7 @@ namespace hurl
 
     //
     // get (string, httparams)
-    // Submit an HTTP GET request with given parameters.
+    //  Submit an HTTP GET request with given parameters.
     //
     //  url     The URL to retrieve. This URL should not contain any query
     //          parameters; those are provided via params.
@@ -56,6 +56,15 @@ namespace hurl
     //          URL-encoded or modified in any way.
     //
     httpresponse post(std::string const& url, std::string const& data);
+
+    //
+    // download (string, string)
+    //  Download a file via HTTP GET to the local filesystem. If a file with
+    //  the specified path already exists and is writable, it will be
+    //  truncated before the download begins, even if the server returns an
+    //  error status.
+    //
+    httpresponse download(std::string const& url, std::string const& localpath);
 
 
     //
