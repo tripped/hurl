@@ -7,17 +7,18 @@
 
 namespace hurl
 {
+    typedef std::map<std::string,std::string> httpparams;
+    typedef std::map<std::string,std::string> httpheaders;
+
     //
     // A response describes the result of a hurl HTTP request.
     //
     struct httpresponse
     {
         int status;
+        httpheaders headers;
         std::string body;
-        // TODO: headers, MIME types, etc.
     };
-
-    typedef std::map<std::string,std::string> httpparams;
 
 
     //

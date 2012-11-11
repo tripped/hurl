@@ -1,5 +1,8 @@
 #include "hurl.h"
 
+#include <iostream>
+#include <locale>
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <exception>
@@ -96,9 +99,49 @@ namespace hurl
             CURL* handle_;
         };
 
+        // Why are these not in the standard library?
+        inline std::string ltrim(std::string const& s)
+        {
+            using namespace std;
+            return string(
+                find_if(s.begin(), s.end(), not1(ptr_fun<int, int>(isspace))),
+                s.end());
+        }
+
+        inline std::string rtrim(std::string const& s)
+        {
+            using namespace std;
+            return string(
+                s.begin(),
+                find_if(s.rbegin(), s.rend(), not1(ptr_fun<int, int>(isspace))).base());
+        }
+
+        inline std::string trim(std::string const& s)
+        {
+            return ltrim(rtrim(s));
+        }
+
         size_t streamfunc(void* ptr, size_t size, size_t nmemb, std::ostream* out)
         {
             (*out).write(static_cast<char*>(ptr), size * nmemb);
+            return size * nmemb;
+        }
+
+        size_t headerfunc(void* ptr, size_t size, size_t nmemb, httpresponse* resp)
+        {
+            std::string header(static_cast<const char*>(ptr), size * nmemb);
+
+            // Per RFC 2616, each header line consists of a token followed
+            // by a ':' and then a value, preceded by any amount of leading
+            // whitespace.
+            size_t cpos = header.find(':');
+            if (cpos != std::string::npos)
+            {
+                std::string name = header.substr(0, cpos);
+                std::string value = trim(header.substr(cpos+1));
+                resp->headers[name] = value;
+            }
+
             return size * nmemb;
         }
 
@@ -128,6 +171,7 @@ namespace hurl
 
 
         void prepare_basic(handle&              curl,
+                           httpresponse &       resp,
                            std::ostream &       out,
                            std::string const&   url)
         {
@@ -136,6 +180,8 @@ namespace hurl
             curl.setopt(CURLOPT_NOPROGRESS, 1);
             curl.setopt(CURLOPT_WRITEFUNCTION, &streamfunc);
             curl.setopt(CURLOPT_WRITEDATA, &out);
+            curl.setopt(CURLOPT_HEADERFUNCTION, &headerfunc);
+            curl.setopt(CURLOPT_HEADERDATA, &resp);
             curl.setopt(CURLOPT_COOKIEFILE, ""); // turns on cookie engine
         }
 
@@ -154,7 +200,7 @@ namespace hurl
         {
             httpresponse result;
             std::ostringstream ss;
-            prepare_basic(curl, ss, url);
+            prepare_basic(curl, result, ss, url);
             curl.perform();
             curl.getinfo(CURLINFO_RESPONSE_CODE, &result.status);
             // Copy the stream buffer into the response
@@ -168,7 +214,7 @@ namespace hurl
         {
             httpresponse result;
             std::ostringstream ss;
-            prepare_basic(curl, ss, url);
+            prepare_basic(curl, result, ss, url);
             prepare_post(curl, data.data(), data.size());
             curl.perform();
             curl.getinfo(CURLINFO_RESPONSE_CODE, &result.status);
@@ -184,7 +230,7 @@ namespace hurl
             std::ofstream out(localpath.c_str(), std::ios::out |
                                                  std::ios::binary |
                                                  std::ios::trunc);
-            prepare_basic(curl, out, url);
+            prepare_basic(curl, result, out, url);
             curl.perform();
             curl.getinfo(CURLINFO_RESPONSE_CODE, &result.status);
             return result;
