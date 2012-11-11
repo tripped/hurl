@@ -156,8 +156,15 @@ namespace hurl
 
         httpresponse get(std::string const& path);
         httpresponse get(std::string const& path, httpparams const& params);
+
         httpresponse post(std::string const& path, std::string const& data);
         httpresponse post(std::string const& path, httpparams const& params);
+
+        httpresponse download(std::string const& path,
+                              std::string const& localpath);
+        httpresponse downloadtarball(std::string const& path,
+                                     std::string const& localpath,
+                                     std::string const& extractdir);
 
     private:
         class impl;

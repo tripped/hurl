@@ -352,5 +352,23 @@ namespace hurl
                             impl_->base_ + path,
                             detail::serialize(params));
     }
+
+    httpresponse client::download(std::string const& path,
+                                  std::string const& localpath)
+    {
+        return detail::download(impl_->handle_,
+                                impl_->base_ + path,
+                                localpath);
+    }
+
+    httpresponse client::downloadtarball(std::string const& path,
+                                    std::string const& localpath,
+                                    std::string const& extractdir)
+    {
+        httpresponse result = download(path, localpath);
+        if (result.status == 200)
+            ext::extract_tarball(localpath, extractdir);
+        return result;
+    }
 }
 
