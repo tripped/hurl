@@ -41,6 +41,20 @@ namespace hurl
 
     namespace detail
     {
+        // Ensure that curl_global_init gets called at program startup,
+        // and that curl_global_cleanup is called before exit
+        static struct ensure_init
+        {
+            ensure_init()
+            {
+                curl_global_init(CURL_GLOBAL_ALL);
+            }
+            ~ensure_init()
+            {
+                curl_global_cleanup();
+            }
+        } moo;
+
         class handle
         {
         public:
