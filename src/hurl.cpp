@@ -11,6 +11,8 @@
 extern "C"
 {
 #include <curl/curl.h>
+#include <fcntl.h>
+#include <libtar.h>
 }
 
 namespace hurl
@@ -237,6 +239,23 @@ namespace hurl
         }
     }
 
+    namespace ext
+    {
+        void extract_tarball(std::string const& file, std::string const& extractdir)
+        {
+            TAR* t;
+
+            // libtar asks for a char*? Bad libtar! Bad! No biscuit.
+            if (tar_open(&t, const_cast<char*>(file.c_str()), NULL, O_RDONLY, 0777, TAR_GNU))
+                throw std::runtime_error("could not open tar");
+
+            if (tar_extract_all(t, const_cast<char*>(extractdir.c_str())))
+                throw std::runtime_error("could not extract tar");
+
+            tar_close(t);
+        }
+    }
+
     //
     // Implementations for the GET/POST free functions
     //
@@ -268,6 +287,16 @@ namespace hurl
     {
         detail::handle curl;
         return detail::download(curl, url, localpath);
+    }
+
+    httpresponse downloadtarball(std::string const& url,
+                                 std::string const& localpath,
+                                 std::string const& extractdir)
+    {
+        httpresponse result = download(url, localpath);
+        if (result.status == 200)
+            ext::extract_tarball(localpath, extractdir);
+        return result;
     }
 
 

@@ -103,6 +103,24 @@ namespace hurl
     //
     httpresponse download(std::string const& url, std::string const& localpath);
 
+    //
+    // downloadtarball (string, string, string)
+    //  Download a tar-encoded archive to the specified path and extract it
+    //  in the specified directory. This function does not follow redirects,
+    //  and if the server responds with any HTTP status besides 200 OK, it
+    //  will not attempt to extract from the downloaded file.
+    //
+    //  url         The URL of the tarball to retrieve
+    //  localpath   Path in local filesystem to save tarball to
+    //  extractdir  Path in local filesystem to extract tarball contents to
+    //
+    // NOTE:
+    //  This is a temporary convenience function; it will probably be
+    //  factored out of this module in a reasonable way soon.
+    //
+    httpresponse downloadtarball(std::string const& url,
+                                 std::string const& localpath,
+                                 std::string const& extractdir);
 
     //
     // client
