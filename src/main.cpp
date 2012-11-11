@@ -2,15 +2,25 @@
 
 #include "hurl.h"
 
-int main()
+int main(int argc, char** argv)
 {
-    std::cout << "Testing hurl...\n";
-
     using namespace hurl;
+
+    if (argc < 2)
+    {
+        std::cout << "usage: " << argv[0] << " url [localpath]\n";
+        return 1;
+    }
 
     try
     {
-        httpresponse result = get("http://google.com");
+        httpresponse result;
+
+        if (argc == 2)
+            result = get(argv[1]);
+        else
+            result = download(argv[1], argv[2]);
+
         std::cout << "STATUS: " << result.status << "\n";
         std::cout << "BODY: " << result.body << "\n";
     }
