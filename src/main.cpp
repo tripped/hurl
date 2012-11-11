@@ -8,10 +8,16 @@ int main()
 
     using namespace hurl;
 
-    httpresponse result = download("http://google.com", "google.html");
-
-    std::cout << "STATUS: " << result.status << "\n";
-    std::cout << "BODY: " << result.body << "\n";
+    try
+    {
+        httpresponse result = get("http://google.com");
+        std::cout << "STATUS: " << result.status << "\n";
+        std::cout << "BODY: " << result.body << "\n";
+    }
+    catch(std::exception& e)
+    {
+        std::cout << e.what() << "\n";
+    }
 
     return 0;
 }

@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 #include <memory>
+#include <stdexcept>
 
 namespace hurl
 {
@@ -17,6 +18,41 @@ namespace hurl
     };
 
     typedef std::map<std::string,std::string> httpparams;
+
+
+    //
+    // Exceptions:
+    //  Any of these may be thrown by the functions in this module that
+    //  perform HTTP requests if certain problematic conditions arise.
+    //
+    class timeout : public std::runtime_error
+    {
+    public:
+        timeout();
+    };
+
+    class resolve_error: public std::runtime_error
+    {
+    public:
+        resolve_error();
+    };
+
+    class connect_error : public std::runtime_error
+    {
+    public:
+        connect_error();
+    };
+
+    // A fallback exception for all other errors; code() returns the
+    // underlying CURLcode and can be used for more information
+    class curl_error : public std::runtime_error
+    {
+    public:
+        explicit curl_error(int);
+        int code() const;
+    private:
+        int code_;
+    };
 
 
     //

@@ -12,6 +12,28 @@ extern "C"
 
 namespace hurl
 {
+    timeout::timeout()
+        : std::runtime_error(curl_easy_strerror(CURLE_OPERATION_TIMEDOUT))
+    { }
+
+    resolve_error::resolve_error()
+        : std::runtime_error(curl_easy_strerror(CURLE_COULDNT_RESOLVE_HOST))
+    { }
+
+    connect_error::connect_error()
+        : std::runtime_error(curl_easy_strerror(CURLE_COULDNT_CONNECT))
+    { }
+
+    curl_error::curl_error(int code)
+        : std::runtime_error(curl_easy_strerror(static_cast<CURLcode>(code))), code_(code)
+    { }
+
+    int curl_error::code() const
+    {
+        return code_;
+    }
+
+
     namespace detail
     {
         class handle
@@ -31,8 +53,17 @@ namespace hurl
 
             void perform()
             {
-                if (CURLE_OK != curl_easy_perform(handle_))
-                    throw std::runtime_error("curl_easy_perform failed");
+                int code = curl_easy_perform(handle_);
+                if (CURLE_OK == code)
+                    return;
+                if (CURLE_OPERATION_TIMEDOUT == code)
+                    throw timeout();
+                if (CURLE_COULDNT_RESOLVE_HOST == code)
+                    throw resolve_error();
+                if (CURLE_COULDNT_CONNECT == code)
+                    throw connect_error();
+                else
+                    throw curl_error(code);
             }
 
             void reset()
@@ -43,15 +74,17 @@ namespace hurl
             template<typename T, typename U>
             void setopt(T option, U value)
             {
-                if (CURLE_OK != curl_easy_setopt(handle_, option, value))
-                    throw std::runtime_error("curl_easy_setopt failed");
+                int code = curl_easy_setopt(handle_, option, value);
+                if (CURLE_OK != code)
+                    throw curl_error(code);
             }
 
             template<typename T, typename U>
             void getinfo(T info, U* ret)
             {
-                if (CURLE_OK != curl_easy_getinfo(handle_, info, ret))
-                    throw std::runtime_error("curl_easy_getinfo failed");
+                int code = curl_easy_getinfo(handle_, info, ret);
+                if (CURLE_OK != code)
+                    throw curl_error(code);
             }
 
             CURL* get() const
