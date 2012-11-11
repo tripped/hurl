@@ -137,13 +137,13 @@ namespace hurl
             return ltrim(rtrim(s));
         }
 
-        size_t streamfunc(void* ptr, size_t size, size_t nmemb, std::ostream* out)
+        extern "C" size_t streamfunc(void* ptr, size_t size, size_t nmemb, std::ostream* out)
         {
             (*out).write(static_cast<char*>(ptr), size * nmemb);
             return size * nmemb;
         }
 
-        size_t headerfunc(void* ptr, size_t size, size_t nmemb, httpresponse* resp)
+        extern "C" size_t headerfunc(void* ptr, size_t size, size_t nmemb, httpresponse* resp)
         {
             std::string header(static_cast<const char*>(ptr), size * nmemb);
 
