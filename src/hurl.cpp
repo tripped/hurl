@@ -189,7 +189,8 @@ namespace hurl
         void prepare_basic(handle&              curl,
                            httpresponse &       resp,
                            std::ostream &       out,
-                           std::string const&   url)
+                           std::string const&   url,
+                           int                  timeout)
         {
             curl.reset();
             curl.setopt(CURLOPT_URL, url.c_str());
@@ -199,6 +200,7 @@ namespace hurl
             curl.setopt(CURLOPT_HEADERFUNCTION, &headerfunc);
             curl.setopt(CURLOPT_HEADERDATA, &resp);
             curl.setopt(CURLOPT_COOKIEFILE, ""); // turns on cookie engine
+            curl.setopt(CURLOPT_TIMEOUT, timeout);
         }
 
         void prepare_post(handle&               curl,
@@ -212,11 +214,12 @@ namespace hurl
 
 
         httpresponse get(handle&                curl,
-                         std::string const&     url)
+                         std::string const&     url,
+                         int                    timeout)
         {
             httpresponse result;
             std::ostringstream ss;
-            prepare_basic(curl, result, ss, url);
+            prepare_basic(curl, result, ss, url, timeout);
             curl.perform();
             curl.getinfo(CURLINFO_RESPONSE_CODE, &result.status);
             // Copy the stream buffer into the response
@@ -226,11 +229,12 @@ namespace hurl
 
         httpresponse post(handle&               curl,
                           std::string const&    url,
-                          std::string const&    data)
+                          std::string const&    data,
+                          int                   timeout)
         {
             httpresponse result;
             std::ostringstream ss;
-            prepare_basic(curl, result, ss, url);
+            prepare_basic(curl, result, ss, url, timeout);
             prepare_post(curl, data.data(), data.size());
             curl.perform();
             curl.getinfo(CURLINFO_RESPONSE_CODE, &result.status);
@@ -240,13 +244,14 @@ namespace hurl
 
         httpresponse download(handle&           curl,
                         std::string const&      url,
-                        std::string const&      localpath)
+                        std::string const&      localpath,
+                        int                     timeout)
         {
             httpresponse result;
             std::ofstream out(localpath.c_str(), std::ios::out |
                                                  std::ios::binary |
                                                  std::ios::trunc);
-            prepare_basic(curl, result, out, url);
+            prepare_basic(curl, result, out, url, timeout);
             curl.perform();
             curl.getinfo(CURLINFO_RESPONSE_CODE, &result.status);
             return result;
@@ -273,41 +278,42 @@ namespace hurl
     //
     // Implementations for the GET/POST free functions
     //
-    httpresponse get(std::string const& url)
+    httpresponse get(std::string const& url, int timeout)
     {
         detail::handle curl;
-        return detail::get(curl, url);
+        return detail::get(curl, url, timeout);
     }
 
-    httpresponse get(std::string const& url, httpparams const& params)
+    httpresponse get(std::string const& url, httpparams const& params, int timeout)
     {
         detail::handle curl;
-        return detail::get(curl, detail::query(url, params));
+        return detail::get(curl, detail::query(url, params), timeout);
     }
 
-    httpresponse post(std::string const& url, std::string const& data)
+    httpresponse post(std::string const& url, std::string const& data, int timeout)
     {
         detail::handle curl;
-        return detail::post(curl, url, data);
+        return detail::post(curl, url, data, timeout);
     }
 
-    httpresponse post(std::string const& url, httpparams const& params)
+    httpresponse post(std::string const& url, httpparams const& params, int timeout)
     {
         detail::handle curl;
-        return detail::post(curl, url, detail::serialize(params));
+        return detail::post(curl, url, detail::serialize(params), timeout);
     }
 
-    httpresponse download(std::string const& url, std::string const& localpath)
+    httpresponse download(std::string const& url, std::string const& localpath, int timeout)
     {
         detail::handle curl;
-        return detail::download(curl, url, localpath);
+        return detail::download(curl, url, localpath, timeout);
     }
 
     httpresponse downloadtarball(std::string const& url,
                                  std::string const& localpath,
-                                 std::string const& extractdir)
+                                 std::string const& extractdir,
+                                 int                timeout)
     {
-        httpresponse result = download(url, localpath);
+        httpresponse result = download(url, localpath, timeout);
         if (result.status == 200)
             ext::extract_tarball(localpath, extractdir);
         return result;
@@ -320,17 +326,18 @@ namespace hurl
     class client::impl
     {
     public:
-        impl(std::string const& baseurl)
-            : base_(baseurl)
+        impl(std::string const& baseurl, int timeout)
+            : base_(baseurl), timeout_(timeout)
         {
         }
 
         detail::handle handle_;
         std::string base_;
+        int timeout_;
     };
 
-    client::client(std::string const& baseurl)
-        : impl_(new impl(baseurl))
+    client::client(std::string const& baseurl, int timeout)
+        : impl_(new impl(baseurl, timeout))
     {
     }
 
@@ -344,27 +351,29 @@ namespace hurl
 
     httpresponse client::get(std::string const& path)
     {
-        return detail::get(impl_->handle_, impl_->base_ + path);
+        return detail::get(impl_->handle_, impl_->base_ + path, impl_->timeout_);
     }
 
     httpresponse client::get(std::string const& path, httpparams const& params)
     {
         return detail::get(impl_->handle_,
-                           detail::query(impl_->base_ + path, params));
+                           detail::query(impl_->base_ + path, params), impl_->timeout_);
     }
 
     httpresponse client::post(std::string const& path, std::string const& data)
     {
         return detail::post(impl_->handle_,
                             impl_->base_ + path,
-                            data);
+                            data,
+                            impl_->timeout_);
     }
 
     httpresponse client::post(std::string const& path, httpparams const& params)
     {
         return detail::post(impl_->handle_,
                             impl_->base_ + path,
-                            detail::serialize(params));
+                            detail::serialize(params),
+                            impl_->timeout_);
     }
 
     httpresponse client::download(std::string const& path,
@@ -372,7 +381,8 @@ namespace hurl
     {
         return detail::download(impl_->handle_,
                                 impl_->base_ + path,
-                                localpath);
+                                localpath,
+                                impl_->timeout_);
     }
 
     httpresponse client::downloadtarball(std::string const& path,

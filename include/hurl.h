@@ -61,8 +61,13 @@ namespace hurl
     //  Submit an HTTP GET request to the given URL.
     //
     //  url     The URL to retrieve.
+    //  timeout Time, in seconds, to wait before failing. A timeout of 0
+    //          means the request will never time out.
     //
-    httpresponse get(std::string const& url);
+    //          Failure takes the form of a thrown hurl::timeout exception.
+    //
+    httpresponse get            (std::string const&     url,
+                                 int                    timeout = 0);
 
     //
     // get (string, httparams)
@@ -71,8 +76,11 @@ namespace hurl
     //  url     The URL to retrieve. This URL should not contain any query
     //          parameters; those are provided via params.
     //  params  A string->string dictionary specifying query parameters.
+    //  timeout Time, in seconds, to wait before failing
     //
-    httpresponse get(std::string const& url, httpparams const& params);
+    httpresponse get            (std::string const&     url,
+                                 httpparams const&      params,
+                                 int                    timeout = 0);
 
     //
     // post (string, httpparams)
@@ -81,8 +89,11 @@ namespace hurl
     //
     //  url     The URL to POST to.
     //  params  A string->string dictionary specifying POST field elements.
+    //  timeout Time, in seconds, to wait before failing
     //
-    httpresponse post(std::string const& url, httpparams const& params);
+    httpresponse post           (std::string const&     url,
+                                 httpparams const&      params,
+                                 int                    timeout = 0);
 
     //
     // post (string, string)
@@ -91,8 +102,11 @@ namespace hurl
     //  url     The URL to POST to.
     //  data    String containing raw data to submit. Will not be
     //          URL-encoded or modified in any way.
+    //  timeout Time, in seconds, to wait before failing
     //
-    httpresponse post(std::string const& url, std::string const& data);
+    httpresponse post           (std::string const&     url,
+                                 std::string const&     data,
+                                 int                    timeout = 0);
 
     //
     // download (string, string)
@@ -101,7 +115,13 @@ namespace hurl
     //  truncated before the download begins, even if the server returns an
     //  error status.
     //
-    httpresponse download(std::string const& url, std::string const& localpath);
+    //  url         The URL of the file to download
+    //  localpath   Path in the local filesystem to save the file to
+    //  timeout     Time, in seconds, to wait before failing
+    //
+    httpresponse download       (std::string const&     url,
+                                 std::string const&     localpath,
+                                 int                    timeout = 0);
 
     //
     // downloadtarball (string, string, string)
@@ -113,6 +133,7 @@ namespace hurl
     //  url         The URL of the tarball to retrieve
     //  localpath   Path in local filesystem to save tarball to
     //  extractdir  Path in local filesystem to extract tarball contents to
+    //  timeout     Time, in seconds, to wait before failing.
     //
     // NOTE:
     //  This is a temporary convenience function; it will probably be
@@ -120,7 +141,8 @@ namespace hurl
     //
     httpresponse downloadtarball(std::string const& url,
                                  std::string const& localpath,
-                                 std::string const& extractdir);
+                                 std::string const& extractdir,
+                                 int timeout = 0);
 
     //
     // client
@@ -148,23 +170,33 @@ namespace hurl
     //  But note that because of the shared session, subsequent requests
     //  made on the example client may have different results.
     //
+    //  Another difference is that the client member functions omit the
+    //  timeout parameter; instead this is set in the client constructor
+    //  and used for all requests.
+    //
     class client
     {
     public:
-        explicit client(std::string const& baseurl);
+        explicit client(std::string const& baseurl, int timeout = 0);
         ~client();
 
-        httpresponse get(std::string const& path);
-        httpresponse get(std::string const& path, httpparams const& params);
+        httpresponse get        (std::string const&     path);
 
-        httpresponse post(std::string const& path, std::string const& data);
-        httpresponse post(std::string const& path, httpparams const& params);
+        httpresponse get        (std::string const&     path,
+                                 httpparams const&      params);
 
-        httpresponse download(std::string const& path,
-                              std::string const& localpath);
+        httpresponse post       (std::string const&     path,
+                                 std::string const&     data);
+
+        httpresponse post       (std::string const&     path,
+                                 httpparams const&      params);
+
+        httpresponse download   (std::string const&     path,
+                                 std::string const&     localpath);
+
         httpresponse downloadtarball(std::string const& path,
-                                     std::string const& localpath,
-                                     std::string const& extractdir);
+                                 std::string const&     localpath,
+                                 std::string const&     extractdir);
 
     private:
         class impl;
