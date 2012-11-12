@@ -1,2 +1,2 @@
-all clean hurl:
+all clean hurl test:
 	$(MAKE) -C src $@
