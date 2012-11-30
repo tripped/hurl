@@ -194,6 +194,7 @@ namespace hurl
         {
             curl.reset();
             curl.setopt(CURLOPT_URL, url.c_str());
+            curl.setopt(CURLOPT_NOSIGNAL, 1);
             curl.setopt(CURLOPT_NOPROGRESS, 1);
             curl.setopt(CURLOPT_WRITEFUNCTION, &streamfunc);
             curl.setopt(CURLOPT_WRITEDATA, &out);
