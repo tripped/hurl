@@ -180,6 +180,21 @@ namespace hurl
         explicit client(std::string const& baseurl, int timeout = 0);
         ~client();
 
+        //
+        // cookie ()
+        //  Retrieve all currently stored cookie data as a sequence of
+        //  newline-separated Netscape-format cookies.
+        //
+        std::string cookie      () const;
+
+        //
+        // setcookie (string)
+        //  Set the cookie data that will be sent with all requests. The
+        //  expected format is a multi-line string, in which each line is
+        //  either a Netscape-format cookie or a Set-header style cookie.
+        //
+        void setcookie          (std::string const&     value);
+
         httpresponse get        (std::string const&     path);
 
         httpresponse get        (std::string const&     path,

@@ -350,6 +350,32 @@ namespace hurl
         // (http://herbsutter.com/gotw/_100)
     }
 
+    std::string client::cookie() const
+    {
+        curl_slist* list = NULL;
+        impl_->handle_.getinfo(CURLINFO_COOKIELIST, &list);
+        std::ostringstream result;
+        while(list)
+        {
+            result << list->data << "\n";
+            list = list->next;
+        }
+        curl_slist_free_all(list);
+        return result.str();
+    }
+
+    void client::setcookie(std::string const& data)
+    {
+        impl_->handle_.setopt(CURLOPT_COOKIELIST, "ALL");
+        std::istringstream ss(data);
+        std::string line;
+        while (!ss.eof())
+        {
+            std::getline(ss, line);
+            impl_->handle_.setopt(CURLOPT_COOKIELIST, line.c_str());
+        }
+    }
+
     httpresponse client::get(std::string const& path)
     {
         return detail::get(impl_->handle_, impl_->base_ + path, impl_->timeout_);
