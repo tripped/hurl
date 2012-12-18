@@ -211,6 +211,11 @@ namespace hurl
             curl.setopt(CURLOPT_POST, 1);
             curl.setopt(CURLOPT_POSTFIELDS, data);
             curl.setopt(CURLOPT_POSTFIELDSIZE, size);
+
+            // In keeping with hurl's "do the wrong thing easily"
+            // philosophy, disable "Expect: 100-continue" header
+            static curl_slist *list = curl_slist_append(NULL, "Expect:");
+            curl.setopt(CURLOPT_HTTPHEADER, list);
         }
 
 
