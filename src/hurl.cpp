@@ -10,6 +10,7 @@
 
 extern "C"
 {
+#include <zlib.h>
 #include <curl/curl.h>
 #include <fcntl.h>
 #include <libtar.h>
@@ -137,6 +138,47 @@ namespace hurl
             return ltrim(rtrim(s));
         }
 
+        //
+        // gzip compression support
+        //
+        std::string gzip(std::string const& input)
+        {
+            z_stream stream;
+            int err;
+
+            unsigned long sourceLen = input.size();
+            unsigned char* source = (unsigned char*)input.data();
+            stream.next_in = source;
+            stream.avail_in = sourceLen;
+
+            stream.zalloc = Z_NULL;
+            stream.zfree = Z_NULL;
+            stream.opaque = Z_NULL;
+
+            if (Z_OK != deflateInit2(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, MAX_WBITS+16,
+                    MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY))
+            {
+                throw std::runtime_error("error initializing deflate");
+            }
+
+            // Add 12 for old versions of zlib that don't correctly include header size
+            unsigned long destLen = 12 + deflateBound(&stream, sourceLen);
+            unsigned char* dest = new unsigned char[destLen];
+
+            stream.next_out = dest;
+            stream.avail_out = destLen;
+
+            if (Z_STREAM_END != deflate(&stream, Z_FINISH))
+            {
+                throw std::runtime_error("failed to completely deflate");
+            }
+
+            std::string result((const char*)dest, (size_t)stream.total_out);
+            deflateEnd(&stream);
+            delete[] dest;
+            return result;
+        }
+
         extern "C" size_t streamfunc(void* ptr, size_t size, size_t nmemb, std::ostream* out)
         {
             (*out).write(static_cast<char*>(ptr), size * nmemb);
@@ -206,7 +248,8 @@ namespace hurl
 
         void prepare_post(handle&               curl,
                           const void*           data,
-                          size_t                size)
+                          size_t                size,
+                          bool                  compressed = false)
         {
             curl.setopt(CURLOPT_POST, 1);
             curl.setopt(CURLOPT_POSTFIELDS, data);
@@ -214,8 +257,13 @@ namespace hurl
 
             // In keeping with hurl's "do the wrong thing easily"
             // philosophy, disable "Expect: 100-continue" header
-            static curl_slist *list = curl_slist_append(NULL, "Expect:");
-            curl.setopt(CURLOPT_HTTPHEADER, list);
+            static curl_slist *disable_expect = curl_slist_append(NULL, "Expect:");
+            curl.setopt(CURLOPT_HTTPHEADER, disable_expect);
+
+            // Include appropriate content-encoding with compressed POST data
+            static curl_slist *enable_gzip = curl_slist_append(NULL, "Content-encoding: gzip");
+            static curl_slist *disable_gzip = curl_slist_append(NULL, "Content-encoding:");
+            curl.setopt(CURLOPT_HTTPHEADER, compressed? enable_gzip : disable_gzip);
         }
 
 
@@ -235,13 +283,22 @@ namespace hurl
 
         httpresponse post(handle&               curl,
                           std::string const&    url,
-                          std::string const&    data,
+                          std::string           data,
                           int                   timeout)
         {
             httpresponse result;
             std::ostringstream ss;
             prepare_basic(curl, result, ss, url, timeout);
-            prepare_post(curl, data.data(), data.size());
+
+            // TEMP: apply gzip compression to request data over 10KB
+            bool compressed = false;
+            if (data.size() > 10240)
+            {
+                data = gzip(data);
+                compressed = true;
+            }
+
+            prepare_post(curl, data.data(), data.size(), compressed);
             curl.perform();
             curl.getinfo(CURLINFO_RESPONSE_CODE, &result.status);
             result.body.assign(ss.str());
