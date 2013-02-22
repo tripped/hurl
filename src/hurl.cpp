@@ -61,7 +61,8 @@ namespace hurl
         {
         public:
             handle()
-                : handle_(curl_easy_init())
+                : handle_(curl_easy_init()),
+                  headers_(NULL)
             {
                 if (handle_ == NULL)
                     throw std::runtime_error("curl_easy_init failed");
@@ -69,11 +70,25 @@ namespace hurl
 
             ~handle()
             {
+                clear_headers();
                 curl_easy_cleanup(handle_);
+            }
+
+            void add_header(std::string const& header)
+            {
+                headers_ = curl_slist_append(headers_, header.c_str());
+            }
+
+            void clear_headers()
+            {
+                curl_slist_free_all(headers_);
+                headers_ = NULL;
             }
 
             void perform()
             {
+                // Set stored headers, then perform
+                setopt(CURLOPT_HTTPHEADER, headers_);
                 int code = curl_easy_perform(handle_);
                 if (CURLE_OK == code)
                     return;
@@ -89,6 +104,7 @@ namespace hurl
 
             void reset()
             {
+                clear_headers();
                 curl_easy_reset(handle_);
             }
 
@@ -115,6 +131,7 @@ namespace hurl
 
         private:
             CURL* handle_;
+            curl_slist* headers_;
         };
 
         // Why are these not in the standard library?
@@ -257,7 +274,7 @@ namespace hurl
         void prepare_post(handle&               curl,
                           const void*           data,
                           size_t                size,
-                          bool                  compressed = false)
+                          bool                  is_compressed = false)
         {
             curl.setopt(CURLOPT_POST, 1);
             curl.setopt(CURLOPT_POSTFIELDS, data);
@@ -265,13 +282,11 @@ namespace hurl
 
             // In keeping with hurl's "do the wrong thing easily"
             // philosophy, disable "Expect: 100-continue" header
-            static curl_slist *disable_expect = curl_slist_append(NULL, "Expect:");
-            curl.setopt(CURLOPT_HTTPHEADER, disable_expect);
+            curl.add_header("Expect:");
 
             // Include appropriate content-encoding with compressed POST data
-            static curl_slist *enable_gzip = curl_slist_append(NULL, "Content-encoding: gzip");
-            static curl_slist *disable_gzip = curl_slist_append(NULL, "Content-encoding:");
-            curl.setopt(CURLOPT_HTTPHEADER, compressed? enable_gzip : disable_gzip);
+            if (is_compressed)
+                curl.add_header("Content-Encoding: gzip");
         }
 
 
