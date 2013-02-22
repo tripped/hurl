@@ -144,7 +144,6 @@ namespace hurl
         std::string gzip(std::string const& input)
         {
             z_stream stream;
-            int err;
 
             unsigned long sourceLen = input.size();
             unsigned char* source = (unsigned char*)input.data();
@@ -170,6 +169,7 @@ namespace hurl
 
             if (Z_STREAM_END != deflate(&stream, Z_FINISH))
             {
+                deflateEnd(&stream);
                 throw std::runtime_error("failed to completely deflate");
             }
 
