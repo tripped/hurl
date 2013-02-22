@@ -3,6 +3,7 @@
 #include <iostream>
 #include <locale>
 #include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <sstream>
 #include <exception>
@@ -138,6 +139,13 @@ namespace hurl
             return ltrim(rtrim(s));
         }
 
+        inline std::string tolower(std::string const& s)
+        {
+            std::string result(s);
+            std::transform(result.begin(), result.end(), result.begin(), (int(*)(int))std::tolower);
+            return result;
+        }
+
         //
         // gzip compression support
         //
@@ -195,7 +203,7 @@ namespace hurl
             size_t cpos = header.find(':');
             if (cpos != std::string::npos)
             {
-                std::string name = header.substr(0, cpos);
+                std::string name = tolower(header.substr(0, cpos));
                 std::string value = trim(header.substr(cpos+1));
                 resp->headers[name] = value;
             }
