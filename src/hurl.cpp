@@ -204,6 +204,64 @@ namespace hurl
             return result;
         }
 
+        std::string gunzip(std::string const& input)
+        {
+            const unsigned long INIT_BUFFER_SIZE = 10240;
+            z_stream stream;
+            stream.zalloc = Z_NULL;
+            stream.zfree = Z_NULL;
+            stream.opaque = Z_NULL;
+
+            unsigned long sourceLen = input.size();
+            unsigned char* source = (unsigned char*)input.data();
+            stream.next_in = source;
+            stream.avail_in = sourceLen;
+
+            if (Z_OK != inflateInit2(&stream, MAX_WBITS+16))
+            {
+                throw std::runtime_error("error initializing inflate");
+            }
+
+            // Allocate an initial buffer
+            unsigned long destLen = INIT_BUFFER_SIZE;
+            unsigned char* dest = new unsigned char[destLen];
+            stream.next_out = dest;
+            stream.avail_out = destLen;
+
+            int rc;
+            do
+            {
+                rc = inflate(&stream, Z_SYNC_FLUSH);
+
+                if (rc == Z_OK)
+                {
+                    unsigned long newLen = destLen * 2;
+                    unsigned char* newBuf = new unsigned char[newLen];
+                    std::copy(dest, dest+destLen, newBuf);
+
+                    stream.next_out = dest + destLen;
+                    stream.avail_out = newLen - destLen;
+
+                    delete[] dest;
+                    dest = newBuf;
+                    destLen = newLen;
+                }
+                else if (rc != Z_STREAM_END)
+                {
+                    inflateEnd(&stream);
+                    delete[] dest;
+                    // TODO: use std::vector for buffering; better exception safety
+                    // also, no need to explicitly copy when reallocating
+                    throw std::runtime_error("failed to completely inflate");
+                }
+            } while(rc != Z_STREAM_END);
+
+            std::string result((const char*)dest, (size_t)stream.total_out);
+            inflateEnd(&stream);
+            delete [] dest;
+            return result;
+        }
+
         extern "C" size_t streamfunc(void* ptr, size_t size, size_t nmemb, std::ostream* out)
         {
             (*out).write(static_cast<char*>(ptr), size * nmemb);
@@ -257,7 +315,8 @@ namespace hurl
                            httpresponse &       resp,
                            std::ostream &       out,
                            std::string const&   url,
-                           int                  timeout)
+                           int                  timeout,
+                           bool                 accept_compression = true)
         {
             curl.reset();
             curl.setopt(CURLOPT_URL, url.c_str());
@@ -269,6 +328,9 @@ namespace hurl
             curl.setopt(CURLOPT_HEADERDATA, &resp);
             curl.setopt(CURLOPT_COOKIEFILE, ""); // turns on cookie engine
             curl.setopt(CURLOPT_TIMEOUT, timeout);
+
+            if (accept_compression)
+                curl.add_header("Accept-encoding: gzip");
         }
 
         void prepare_post(handle&               curl,
@@ -289,6 +351,17 @@ namespace hurl
                 curl.add_header("Content-Encoding: gzip");
         }
 
+        void process_response(handle&           curl,
+                              httpresponse&     response)
+        {
+            if (response.headers.count("content-encoding"))
+            {
+                if (tolower(response.headers["content-encoding"]) == "gzip")
+                {
+                    response.body = gunzip(response.body);
+                }
+            }
+        }
 
         httpresponse get(handle&                curl,
                          std::string const&     url,
@@ -301,6 +374,7 @@ namespace hurl
             curl.getinfo(CURLINFO_RESPONSE_CODE, &result.status);
             // Copy the stream buffer into the response
             result.body.assign(ss.str());
+            process_response(curl, result);
             return result;
         }
 
@@ -325,6 +399,7 @@ namespace hurl
             curl.perform();
             curl.getinfo(CURLINFO_RESPONSE_CODE, &result.status);
             result.body.assign(ss.str());
+            process_response(curl, result);
             return result;
         }
 
@@ -337,7 +412,8 @@ namespace hurl
             std::ofstream out(localpath.c_str(), std::ios::out |
                                                  std::ios::binary |
                                                  std::ios::trunc);
-            prepare_basic(curl, result, out, url, timeout);
+            // NOTE: download currently doesn't allow compressed responses
+            prepare_basic(curl, result, out, url, timeout, false);
             curl.perform();
             curl.getinfo(CURLINFO_RESPONSE_CODE, &result.status);
             return result;
