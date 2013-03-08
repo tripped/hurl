@@ -239,7 +239,7 @@ namespace hurl
                     unsigned char* newBuf = new unsigned char[newLen];
                     std::copy(dest, dest+destLen, newBuf);
 
-                    stream.next_out = dest + destLen;
+                    stream.next_out = newBuf + destLen;
                     stream.avail_out = newLen - destLen;
 
                     delete[] dest;
