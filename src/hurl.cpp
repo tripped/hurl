@@ -8,6 +8,7 @@
 #include <sstream>
 #include <exception>
 #include <stdexcept>
+#include <vector>
 
 extern "C"
 {
@@ -211,11 +212,8 @@ namespace hurl
             stream.zalloc = Z_NULL;
             stream.zfree = Z_NULL;
             stream.opaque = Z_NULL;
-
-            unsigned long sourceLen = input.size();
-            unsigned char* source = (unsigned char*)input.data();
-            stream.next_in = source;
-            stream.avail_in = sourceLen;
+            stream.next_in = (unsigned char*)input.data();
+            stream.avail_in = input.size();
 
             if (Z_OK != inflateInit2(&stream, MAX_WBITS+16))
             {
@@ -223,10 +221,9 @@ namespace hurl
             }
 
             // Allocate an initial buffer
-            unsigned long destLen = INIT_BUFFER_SIZE;
-            unsigned char* dest = new unsigned char[destLen];
-            stream.next_out = dest;
-            stream.avail_out = destLen;
+            std::vector<unsigned char> dest(INIT_BUFFER_SIZE);
+            stream.next_out = &dest.front();
+            stream.avail_out = dest.size();
 
             int rc;
             do
@@ -235,31 +232,25 @@ namespace hurl
 
                 if (rc == Z_OK)
                 {
-                    unsigned long newLen = destLen * 2;
-                    unsigned char* newBuf = new unsigned char[newLen];
-                    std::copy(dest, dest+destLen, newBuf);
-
-                    stream.next_out = newBuf + destLen;
-                    stream.avail_out = newLen - destLen;
-
-                    delete[] dest;
-                    dest = newBuf;
-                    destLen = newLen;
+                    // Reallocate buffer and continue
+                    size_t oldSize = dest.size();
+                    dest.resize(dest.size() * 2);
+                    stream.next_out = &dest.front() + oldSize;
+                    stream.avail_out = dest.size() - oldSize;
                 }
                 else if (rc != Z_STREAM_END)
                 {
                     inflateEnd(&stream);
-                    delete[] dest;
+                    std::cerr << "Error code: " << rc << "\n"
+                              << "Message: " << stream.msg << "\n";
                     // TODO: use std::vector for buffering; better exception safety
                     // also, no need to explicitly copy when reallocating
                     throw std::runtime_error("failed to completely inflate");
                 }
             } while(rc != Z_STREAM_END);
 
-            std::string result((const char*)dest, (size_t)stream.total_out);
             inflateEnd(&stream);
-            delete [] dest;
-            return result;
+            return std::string((const char*)&dest.front(), (size_t)stream.total_out);
         }
 
         extern "C" size_t streamfunc(void* ptr, size_t size, size_t nmemb, std::ostream* out)
