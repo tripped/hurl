@@ -171,10 +171,8 @@ namespace hurl
         {
             z_stream stream;
 
-            unsigned long sourceLen = input.size();
-            unsigned char* source = (unsigned char*)input.data();
-            stream.next_in = source;
-            stream.avail_in = sourceLen;
+            stream.next_in = (unsigned char*)input.data();
+            stream.avail_in = input.size();
 
             stream.zalloc = Z_NULL;
             stream.zfree = Z_NULL;
@@ -187,11 +185,11 @@ namespace hurl
             }
 
             // Add 12 for old versions of zlib that don't correctly include header size
-            unsigned long destLen = 12 + deflateBound(&stream, sourceLen);
-            unsigned char* dest = new unsigned char[destLen];
+            unsigned long maxLen = 12 + deflateBound(&stream, input.size());
+            std::vector<unsigned char> dest(maxLen);
 
-            stream.next_out = dest;
-            stream.avail_out = destLen;
+            stream.next_out = &dest.front();
+            stream.avail_out = dest.size();
 
             if (Z_STREAM_END != deflate(&stream, Z_FINISH))
             {
@@ -199,9 +197,8 @@ namespace hurl
                 throw std::runtime_error("failed to completely deflate");
             }
 
-            std::string result((const char*)dest, (size_t)stream.total_out);
+            std::string result((const char*)&dest.front(), (size_t)stream.total_out);
             deflateEnd(&stream);
-            delete[] dest;
             return result;
         }
 
