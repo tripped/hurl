@@ -499,6 +499,11 @@ namespace hurl
         // (http://herbsutter.com/gotw/_100)
     }
 
+    std::string client::base() const
+    {
+        return impl_->base_;
+    }
+
     std::string client::cookie() const
     {
         curl_slist* list = NULL;

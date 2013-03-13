@@ -181,6 +181,12 @@ namespace hurl
         ~client();
 
         //
+        // base()
+        //  Retrieve the client base URL.
+        //
+        std::string base        () const;
+
+        //
         // cookie ()
         //  Retrieve all currently stored cookie data as a sequence of
         //  newline-separated Netscape-format cookies.
